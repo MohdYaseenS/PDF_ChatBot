@@ -84,14 +84,31 @@ def recursive_text_splitter(text: str, chunk_size: int = 1000, overlap: int = 20
 
 
 
-# Vectorize the chunks using Sentence-Transformers
+# ======================================================
+# Vectorization with Sentence Transformers
+# ======================================================
 def vectorize_text_chunks(chunks: List[str]) -> np.ndarray:
     """
-    Convert text chunks to vectors using Sentence-Transformers.
+    Convert text chunks to vectors. Validated and exception-safe.
     """
-    model = SentenceTransformer('all-MiniLM-L6-v2')  # Pre-trained model
-    vectors = model.encode(chunks, show_progress_bar=True)
-    return np.array(vectors)
+    try:
+        cfg = VectorizeConfig(chunks=chunks)
+
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        vectors = model.encode(cfg.chunks, show_progress_bar=False)
+
+        logger.info(f"Vectorized {len(cfg.chunks)} chunks into shape {vectors.shape}.")
+        return np.array(vectors)
+
+    except ValidationError as ve:
+        logger.error(f"Validation error in vectorize_text_chunks: {ve}")
+        raise ValueError(f"Invalid chunk data: {ve}")
+
+    except Exception as e:
+        logger.error(f"Unexpected error vectorizing chunks: {e}")
+        raise RuntimeError(f"Unexpected error vectorizing chunks: {e}")
+
+        
 
 # Create FAISS index to store vectors
 def create_faiss_index(vectors: np.ndarray) -> faiss.IndexFlatL2:
