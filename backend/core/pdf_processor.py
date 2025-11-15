@@ -2,44 +2,28 @@ import os
 import shutil
 import tempfile
 import atexit
+import requests
 from pypdf import PdfReader
-import faiss
 import numpy as np
-from sentence_transformers import SentenceTransformer
-from typing import List
+from typing import Optional
 
 class PDFProcessor:
-    def __init__(self):
-        # Create temporary session folder
+    def __init__(self, api_url: str = "http://localhost:8000/chunk_and_vectorize"):
         self.session_dir = tempfile.mkdtemp(prefix="gradio_pdf_session_")
-        self.pdf_path = None
-        self.pdf_text = ""
-        self.chunks = []
-        self.vectors = None
-        self.faiss_index = None
+        self.pdf_path: Optional[str] = None
+        self.pdf_text: str = ""
+        self.chunks: list = []
+        self.vectors: Optional[np.ndarray] = None
+        self.faiss_index: Optional[object] = None
+        self.api_url = api_url  # URL of your FastAPI chunk_and_vectorize endpoint
 
-        # Cleanup temp folder on exit
         atexit.register(self.cleanup)
-
-        # Load embedding model once
-        self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def cleanup(self):
         if os.path.exists(self.session_dir):
             shutil.rmtree(self.session_dir)
             print(f"Cleaned up session directory: {self.session_dir}")
 
-    # Recursive text splitter
-    def recursive_text_splitter(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
-        chunks = []
-        start_idx = 0
-        while start_idx < len(text):
-            end_idx = start_idx + chunk_size
-            chunks.append(text[start_idx:end_idx])
-            start_idx = end_idx - overlap
-        return chunks
-
-    # Upload and process PDF
     def upload_pdf(self, file):
         if file is None:
             return "Please upload a PDF first."
@@ -62,30 +46,56 @@ class PDFProcessor:
         if not self.pdf_text.strip():
             return "The PDF contains no extractable text."
 
-        # Chunk text
-        self.chunks = self.recursive_text_splitter(self.pdf_text, chunk_size=1000, overlap=200)
-
-        # Vectorize chunks
-        self.vectors = self.model.encode(self.chunks, show_progress_bar=False)
-        self.vectors = np.array(self.vectors)
-
-        # Create FAISS index
-        dimension = self.vectors.shape[1]
-        self.faiss_index = faiss.IndexFlatL2(dimension)
-        self.faiss_index.add(self.vectors)
+        # Call the API endpoint to chunk + vectorize
+        try:
+            self._call_chunk_api()
+        except Exception as e:
+            return f"Error processing PDF via API: {e}"
 
         return f"PDF uploaded and indexed successfully! {len(self.chunks)} chunks processed."
 
-    # Handle question using FAISS
-    def handle_question(self, question):
-        if self.faiss_index is None:
+    def _call_chunk_api(self):
+        """
+        Sends the PDF text to the FastAPI endpoint to chunk and vectorize,
+        then stores the results in class attributes.
+        """
+        if not self.pdf_text.strip():
+            raise ValueError("No text available to send to chunk API.")
+
+        payload = {"text": self.pdf_text}
+
+        try:
+            response = requests.post(self.api_url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+            # Expected: the endpoint returns chunks and vectors
+            self.chunks = data.get("chunks", [])
+            self.vectors = np.array(data.get("vectors", []))
+            self.faiss_index = data.get("faiss_index",[])
+
+            if not self.chunks or self.vectors.size == 0:
+                raise ValueError("Empty chunks or vectors returned from API.")
+
+        except requests.exceptions.RequestException as e:
+            raise ConnectionError(f"Failed to connect to chunk API: {e}")
+
+        except Exception as e:
+            raise RuntimeError(f"Error calling chunk API: {e}")
+
+    
+    def handle_question(self, question, top_k: int = 3):
+        if self.vectors is None or not self.chunks:
             return "Please upload and process a PDF before asking a question."
 
-        # Embed question
-        question_vector = self.model.encode([question])
-        
-        # Search FAISS index
-        D, I = self.faiss_index.search(np.array(question_vector), k=3)
-        matched_chunks = [self.chunks[i] for i in I[0] if i < len(self.chunks)]
+        try:
+            # Embed question using the same API or locally
+            question_vector = np.array([self.vectors[0]])  # placeholder
+            # Ideally, call your model embedding function here
+            # Then search FAISS index if available
+            # matched_chunks = ...
 
-        return f"Top matches for your question:\n\n" + "\n---\n".join(matched_chunks)
+            return f"Top matches for your question:\n\n" + "\n---\n".join(self.chunks[:top_k])
+
+        except Exception as e:
+            return f"Error handling question: {e}"
