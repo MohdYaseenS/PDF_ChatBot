@@ -1,21 +1,25 @@
 import gradio as gr
-from utils import upload_pdf, handle_question
+from backend.core.pdf_processor import PDFProcessor
 
-# Only launch app if script is run directly
+# Create an instance of the processor
+pdf_processor = PDFProcessor()
+
 if __name__ == "__main__":
     with gr.Blocks() as app:
         gr.Markdown("## 📄 PDF Question Interface")
         
+        # Upload PDF tab
         with gr.Tab("Upload PDF"):
             pdf_input = gr.File(label="Upload your PDF", file_types=[".pdf"])
-            upload_output = gr.Textbox(label="Upload status", interactive=False, placeholder="Load your PDF")
+            upload_output = gr.Textbox(label="Upload status", interactive=False)
             upload_btn = gr.Button("Upload")
-            upload_btn.click(upload_pdf, inputs=pdf_input, outputs=upload_output)
+            upload_btn.click(pdf_processor.upload_pdf, inputs=pdf_input, outputs=upload_output)
         
+        # Ask question tab
         with gr.Tab("Ask Question"):
             question_input = gr.Textbox(label="Type your question", placeholder="Enter your question here...")
             submit_btn = gr.Button("Submit Question")
             response_output = gr.Textbox(label="Response")
-            submit_btn.click(handle_question, inputs=question_input, outputs=response_output)
+            submit_btn.click(pdf_processor.handle_question, inputs=question_input, outputs=response_output)
     
     app.launch()
