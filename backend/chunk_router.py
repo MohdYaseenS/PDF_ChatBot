@@ -1,9 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from chunk_and_vectorize.chunk_and_vectorize_utils import recursive_text_splitter, vectorize_text_chunks, create_faiss_index
-from backend.core.model import get_llm_model
-
-llm_model=get_llm_model()
+from backend.core.config import ChatBotEnvConfig
 
 chunk_router = APIRouter()
 
@@ -14,7 +12,7 @@ class PDF(BaseModel):
 @chunk_router.post("/chunk_and_vectorize")
 async def chunk_and_vectorize(data: PDF, llm_model: ChatBotEnvConfig):
     response={}
-    chunks = recursive_text_splitter(text = data.text, chunk_size = llm_model.chunk_size, overlap = llm.overlap)
+    chunks = recursive_text_splitter(text = data.text, chunk_size = llm_model.chunk_size, overlap = llm_model.overlap)
     chunk_vectors = vectorize_text_chunks(chunks = chunks)
     faiss_vector_index = create_faiss_index(vectors = chunk_vectors)
 
