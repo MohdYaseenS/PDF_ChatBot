@@ -49,19 +49,40 @@ class FaissIndexConfig(BaseModel):
 
         return vectors
 
-# Recursive text splitter with overlap
+
+
+# ======================================================
+# Recursive text splitter
+# ======================================================
 def recursive_text_splitter(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
     """
-    Split text into chunks with overlap. Recursively splits if the chunk exceeds the chunk_size.
+    Split text into chunks with overlap. Validated using Pydantic, and wrapped
+    with safe exception handling.
     """
-    chunks = []
-    start_idx = 0
-    while start_idx < len(text):
-        end_idx = start_idx + chunk_size
-        chunk = text[start_idx:end_idx]
-        chunks.append(chunk)
-        start_idx = end_idx - overlap  # Slide the window with overlap
-    return chunks
+    try:
+        cfg = TextChunkConfig(text=text, chunk_size=chunk_size, overlap=overlap)
+
+        chunks = []
+        start_idx = 0
+
+        while start_idx < len(cfg.text):
+            end_idx = start_idx + cfg.chunk_size
+            chunk = cfg.text[start_idx:end_idx]
+            chunks.append(chunk)
+            start_idx = end_idx - cfg.overlap
+
+        logger.info(f"Text successfully split into {len(chunks)} chunks.")
+        return chunks
+
+    except ValidationError as ve:
+        logger.error(f"Validation error in recursive_text_splitter: {ve}")
+        raise ValueError(f"Invalid input for text splitting: {ve}")
+
+    except Exception as e:
+        logger.error(f"Unexpected error splitting text: {e}")
+        raise RuntimeError(f"Unexpected error splitting text: {e}")
+
+
 
 # Vectorize the chunks using Sentence-Transformers
 def vectorize_text_chunks(chunks: List[str]) -> np.ndarray:
