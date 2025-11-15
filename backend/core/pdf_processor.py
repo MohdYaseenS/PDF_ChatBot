@@ -17,15 +17,6 @@ class PDFProcessor:
             api_url = f"http://localhost:{port}/chunk_and_vectorize"
         
         self.api_url = api_url
-
-        # Check if API is reachable
-        try:
-            response = requests.get(self.api_url.replace("/chunk_and_vectorize", "/health"), timeout=3)
-            if response.status_code != 200:
-                raise ConnectionError(f"Chunk API returned status code {response.status_code}")
-        except requests.exceptions.RequestException as e:
-            raise ConnectionError(f"Cannot connect to Chunk API at {self.api_url}: {e}")
-
         # Initialize other attributes
         self.session_dir = tempfile.mkdtemp(prefix="gradio_pdf_session_")
         self.pdf_path: Optional[str] = None
