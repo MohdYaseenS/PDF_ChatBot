@@ -7,19 +7,32 @@ from pypdf import PdfReader
 import numpy as np
 from typing import Optional
 
+import os
+import requests
+
 class PDFProcessor:
     def __init__(self, api_url: str = None):
         if api_url is None:
-            port = os.environ.get("PORT", "8000")
+            port = os.environ.get("CHUNK_API_PORT", "8000")
             api_url = f"http://localhost:{port}/chunk_and_vectorize"
+        
+        self.api_url = api_url
+
+        # Check if API is reachable
+        try:
+            response = requests.get(self.api_url.replace("/chunk_and_vectorize", "/health"), timeout=3)
+            if response.status_code != 200:
+                raise APIConnectionError(f"Chunk API returned status code {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            raise APIConnectionError(f"Cannot connect to Chunk API at {self.api_url}: {e}")
+
+        # Initialize other attributes
         self.session_dir = tempfile.mkdtemp(prefix="gradio_pdf_session_")
         self.pdf_path: Optional[str] = None
         self.pdf_text: str = ""
         self.chunks: list = []
         self.vectors: Optional[np.ndarray] = None
         self.faiss_index: Optional[object] = None
-        self.api_url = api_url  # URL of your FastAPI chunk_and_vectorize endpoint
-
         atexit.register(self.cleanup)
 
     def cleanup(self):
