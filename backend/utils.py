@@ -1,4 +1,3 @@
-from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 from PyPDF2 import PdfReader
 from typing import List
