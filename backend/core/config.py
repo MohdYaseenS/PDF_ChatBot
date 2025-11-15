@@ -17,10 +17,11 @@ class ChatBotEnvConfig(BaseModel):
     @classmethod
     def from_env(cls):
         return cls(
-            backend=os.getenv("LLM_BACKEND"),
-            api_key=os.getenv("API_KEY"),
             model_id=os.getenv("MODEL_ID"),
             max_tokens=int(os.getenv("MAX_TOKENS", 512)),
             temperature=float(os.getenv("TEMPERATURE", 0.7)),
             stream_message=os.getenv("STREAM_MESSAGE", "false").lower() == "true",
+            chunk_size=int(os.getenv("CHUNK_SIZE")),
+            overlap=int(os.getenv("OVERLAP")),
+
         )
