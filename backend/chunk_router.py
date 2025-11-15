@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from chunk_and_vectorize.chunk_and_vectorize import recursive_text_splitter, vectorize_text_chunks, create_faiss_index
+from chunk_and_vectorize.chunk_and_vectorize_utils import recursive_text_splitter, vectorize_text_chunks, create_faiss_index
 
 chunk_router = APIRouter()
 
