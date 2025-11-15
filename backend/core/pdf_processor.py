@@ -8,7 +8,10 @@ import numpy as np
 from typing import Optional
 
 class PDFProcessor:
-    def __init__(self, api_url: str = "http://localhost:8000/chunk_and_vectorize"):
+    def __init__(self, api_url: str = None):
+        if api_url is None:
+            port = os.environ.get("PORT", "8000")
+            api_url = f"http://localhost:{port}/chunk_and_vectorize"
         self.session_dir = tempfile.mkdtemp(prefix="gradio_pdf_session_")
         self.pdf_path: Optional[str] = None
         self.pdf_text: str = ""
