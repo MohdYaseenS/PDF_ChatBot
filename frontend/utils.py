@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import atexit
 from pypdf import PdfReader
+import requests
 
 session_dir = tempfile.mkdtemp(prefix="gradio_pdf_session_")
 pdf_path = None
@@ -30,7 +31,7 @@ def upload_pdf(file):
             pdf_text += page.extract_text() + "\n"
     except Exception as e:
         return f"Error reading PDF: {e}" 
-
+        
     return f"PDF uploaded successfully, PDF processed successfully.Stored at: {pdf_path} with content: {pdf_text}"
 
 
@@ -42,4 +43,16 @@ def handle_question(question):
     # Here you can process the question or send it to an API
     # For demonstration, we just echo the question
     return f"Received your question: '{question}'\nPDF in use: {os.path.basename(pdf_path)}"
+
+
+def text_cunk_request(pdf_text):
+    url = "http://localhost:8081/api/chunk_and_vectorize"  # URL of the backend API endpoint
+    payload = {"text": pdf_text}
+    try:
+        response = requests.post(url, json=payload) # Send POST request to the backend API
+        return response  
+    except requests.exceptions.RequestException as e:
+        yield f"Connection error: {str(e)}"
+    except Exception as e:
+        yield f"Unexpected error: {str(e)}"
 
