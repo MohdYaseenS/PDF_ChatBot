@@ -1,7 +1,7 @@
 from pydantic import ValidationError
 from backend.core.config import ChatBotEnvConfig
 
-def get_llm_model():
+def get_config():
     """
     Initializes and returns the appropriate LLM model based on environment variables.
 

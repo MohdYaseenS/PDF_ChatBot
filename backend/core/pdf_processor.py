@@ -8,9 +8,7 @@ import numpy as np
 from typing import Optional
 import os
 import requests
-from backend.models.llm_model import get_llm_model
-
-llm_model=get_llm_model()
+from backend.models.get_env_config import get_llm_model
 
 class PDFProcessor:
     def __init__(self, api_url: str = None):
