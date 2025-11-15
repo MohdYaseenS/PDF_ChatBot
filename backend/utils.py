@@ -108,14 +108,29 @@ def vectorize_text_chunks(chunks: List[str]) -> np.ndarray:
         logger.error(f"Unexpected error vectorizing chunks: {e}")
         raise RuntimeError(f"Unexpected error vectorizing chunks: {e}")
 
-        
 
-# Create FAISS index to store vectors
+
+# ======================================================
+# FAISS index creation
+# ======================================================
 def create_faiss_index(vectors: np.ndarray) -> faiss.IndexFlatL2:
     """
-    Create a FAISS index to store vectors and allow for similarity search.
+    Create a FAISS index from validated vectors.
     """
-    dimension = vectors.shape[1]  # Dimensionality of the vectors
-    index = faiss.IndexFlatL2(dimension)  # L2 distance-based index
-    index.add(vectors)  # Add vectors to the index
-    return index
+    try:
+        cfg = FaissIndexConfig(vectors=vectors)
+
+        dimension = cfg.vectors.shape[1]
+        index = faiss.IndexFlatL2(dimension)
+        index.add(cfg.vectors)
+
+        logger.info(f"FAISS index created with {cfg.vectors.shape[0]} vectors.")
+        return index
+
+    except ValidationError as ve:
+        logger.error(f"Validation error in create_faiss_index: {ve}")
+        raise ValueError(f"Invalid vector data: {ve}")
+
+    except Exception as e:
+        logger.error(f"Unexpected error creating FAISS index: {e}")
+        raise RuntimeError(f"Unexpected error creating FAISS index: {e}")
