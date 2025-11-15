@@ -1,7 +1,7 @@
 import numpy as np
 import faiss
 import logging
-from pydantic import BaseModel, Field, ValidationError, validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from typing import List
 from sentence_transformers import SentenceTransformer
 
@@ -18,7 +18,7 @@ class TextChunkConfig(BaseModel):
     chunk_size: int = Field(1000, gt=50, description="Max characters per chunk.")
     overlap: int = Field(200, ge=0, lt=1000, description="Overlap between chunks.")
 
-    @validator("overlap")
+    @field_validator("overlap")
     def validate_overlap(cls, overlap, values):
         if "chunk_size" in values and overlap >= values["chunk_size"]:
             raise ValueError("overlap must be smaller than chunk_size")
@@ -27,7 +27,7 @@ class TextChunkConfig(BaseModel):
 class VectorizeConfig(BaseModel):
     chunks: List[str] = Field(..., min_items=1, description="List of text chunks.")
 
-    @validator("chunks")
+    @field_validator("chunks")
     def validate_chunks(cls, chunks):
         if any(len(c.strip()) == 0 for c in chunks):
             raise ValueError("Chunks cannot contain empty strings.")
