@@ -1,4 +1,5 @@
 gradio
-shutil
-tempfile
-atexit
+faiss-cpu
+numpy
+sentence_transformers
+requests
