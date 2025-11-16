@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.chunk_router import router as chunk_router
+from backend.api.chunk_router import router as chunk_router
 
 app = FastAPI(title="PDF_ChatBot")
 
