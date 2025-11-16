@@ -1,3 +1,4 @@
+# backend/core/pdf_processor.py
 import os
 import shutil
 import tempfile
@@ -6,103 +7,79 @@ import requests
 from pypdf import PdfReader
 import numpy as np
 from typing import Optional
-import os
-import requests
-from backend.models.get_env_config import get_llm_model
+import logging
+
+logger = logging.getLogger("core.pdf_processor")
 
 class PDFProcessor:
-    def __init__(self, api_url: str = None):
-        if api_url is None:
-            port = os.environ.get("CHUNK_API_PORT", "8000")
-            api_url = f"http://localhost:{port}/chunk_and_vectorize"
-        
-        self.api_url = api_url
-        # Initialize other attributes
+    def __init__(self, api_url: Optional[str] = None, index_key: str = "default"):
+        port = os.environ.get("CHUNK_API_PORT", "8000")
+        self.api_url = api_url or f"http://localhost:{port}/api"
         self.session_dir = tempfile.mkdtemp(prefix="gradio_pdf_session_")
         self.pdf_path: Optional[str] = None
         self.pdf_text: str = ""
-        self.chunks: list = []
-        self.vectors: Optional[np.ndarray] = None
-        self.faiss_index: Optional[object] = None
+        self.chunks = []
+        self.vectors = None
+        self.index_key = index_key
         atexit.register(self.cleanup)
 
     def cleanup(self):
         if os.path.exists(self.session_dir):
             shutil.rmtree(self.session_dir)
-            print(f"Cleaned up session directory: {self.session_dir}")
+            logger.info(f"Cleaned up {self.session_dir}")
 
-    def upload_pdf(self, file):
+    def upload_pdf(self, file) -> str:
         if file is None:
             return "Please upload a PDF first."
-
-        # Save PDF
         self.pdf_path = os.path.join(self.session_dir, os.path.basename(file.name))
         shutil.copy(file.name, self.pdf_path)
-
-        # Extract text
         self.pdf_text = ""
         try:
             reader = PdfReader(self.pdf_path)
             for page in reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    self.pdf_text += page_text + "\n"
+                text = page.extract_text()
+                if text:
+                    self.pdf_text += text + "\n"
         except Exception as e:
             return f"Error reading PDF: {e}"
-
         if not self.pdf_text.strip():
             return "The PDF contains no extractable text."
 
-        # Call the API endpoint to chunk + vectorize
         try:
-            self._call_chunk_api()
+            r = requests.post(f"{self.api_url}/chunk", json={"text": self.pdf_text}, timeout=120)
+            r.raise_for_status()
+            data = r.json()
+            self.chunks = data.get("chunks", [])
+            self.vectors = np.array(data.get("vectors", []), dtype=np.float32)
+            build_resp = requests.post(f"{self.api_url}/search/build_index", json={
+                "key": self.index_key,
+                "chunks": self.chunks,
+                "vectors": self.vectors.tolist(),
+            }, timeout=60)
+            build_resp.raise_for_status()
         except Exception as e:
             return f"Error processing PDF via API: {e}"
-
         return f"PDF uploaded and indexed successfully! {len(self.chunks)} chunks processed."
 
-    def _call_chunk_api(self):
-        """
-        Sends the PDF text to the FastAPI endpoint to chunk and vectorize,
-        then stores the results in class attributes.
-        """
-        if not self.pdf_text.strip():
-            raise ValueError("No text available to send to chunk API.")
-
-        payload = {"text": self.pdf_text}
-
-        try:
-            response = requests.post(self.api_url, json=payload)
-            response.raise_for_status()
-            data = response.json()
-
-            # Expected: the endpoint returns chunks and vectors
-            self.chunks = data.get("chunks", [])
-            self.vectors = np.array(data.get("vectors", []))
-            self.faiss_index = data.get("faiss_index",[])
-
-            if not self.chunks or self.vectors.size == 0:
-                raise ValueError("Empty chunks or vectors returned from API.")
-
-        except requests.exceptions.RequestException as e:
-            raise ConnectionError(f"Failed to connect to chunk API: {e}")
-
-        except Exception as e:
-            raise RuntimeError(f"Error calling chunk API: {e}")
-
-    
-    def handle_question(self, question, top_k: int = 3):
-        if self.vectors is None or not self.chunks:
+    def ask(self, question: str, top_k: int = 3) -> str:
+        if not self.chunks or self.vectors is None:
             return "Please upload and process a PDF before asking a question."
-
         try:
-            # Embed question using the same API or locally
-            question_vector = np.array([self.vectors[0]])  # placeholder
-            # Ideally, call your model embedding function here
-            # Then search FAISS index if available
-            # matched_chunks = ...
-
-            return f"Top matches for your question:\n\n" + "\n---\n".join(self.chunks[:top_k])
-
+            qresp = requests.post(f"{self.api_url}/search/query", json={
+                "key": self.index_key,
+                "query": question,
+                "top_k": top_k,
+            }, timeout=30)
+            qresp.raise_for_status()
+            data = qresp.json()
+            matches = data.get("matches", [])
+            context = "\n\n---\n\n".join(matches)
+            ans_resp = requests.post(f"{self.api_url}/llm/answer", json={
+                "context": context,
+                "question": question,
+            }, timeout=60)
+            ans_resp.raise_for_status()
+            answer = ans_resp.json().get("answer")
+            return answer
         except Exception as e:
             return f"Error handling question: {e}"
