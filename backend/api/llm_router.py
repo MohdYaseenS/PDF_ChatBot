@@ -1,9 +1,7 @@
 # backend/api/llm_router.py
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from backend.models.get_env_config import get_config
-import os
-from huggingface_hub import InferenceClient
+from backend.core.response_generator import generate_response
 
 router = APIRouter()
 
@@ -13,23 +11,23 @@ class AnswerRequest(BaseModel):
 
 @router.post("/answer")
 async def generate_answer(req: AnswerRequest):
-    cfg = get_config()
-    if not req.context:
-        raise HTTPException(status_code=400, detail="Context required")
+    prompt = f"You are provided with the following context: {req.context} Based on this context, answer the question: {req.question}"
+    result = generate_response(prompt)
 
+    if not result["success"]:
+        return {"error": result["error"]}
 
-    client = InferenceClient(
-        api_key=os.environ["HF_API_KEY"],
-    )
+    # Streaming flow
+    if result.get("stream"):
+        async def streamer():
+            try:
+                for chunk in result["data"]:  # generator from llm.generate_stream
+                    yield chunk
+                    await asyncio.sleep(0.01)
+            except Exception as e:
+                yield f"\n\nError during streaming: {str(e)}"
+                
+        return StreamingResponse(streamer(), media_type="text/plain")
 
-    completion = client.chat.completions.create(
-        model=cfg.model_id,
-        messages=[
-            {
-                "role": "user",
-                "content": f"Answer the question:{req.question} based on the context:\nContext: {req.context}"
-            }
-        ],
-    )
-    answer=completion.choices[0].message
-    return {"answer": answer}
+    # Normal flow
+    return {"answer": result["data"]}
