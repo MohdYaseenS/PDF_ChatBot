@@ -14,8 +14,8 @@ app.add_middleware(
 )
 
 app.include_router(chunk_router, prefix="/api")
-app.include_router(llm_router, prefix="/llm")
-app.include_router(chunk_router, prefix="/search")
+app.include_router(search_router, prefix="/api/search")
+app.include_router(llm_router, prefix="/api/llm")
 
 @app.get("/")
 def root():
