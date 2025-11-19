@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-class TogetherModel:
+class HugginFaceModel:
     """
     LLM wrapper using Together's official Python SDK.
     """
