@@ -27,7 +27,6 @@ def recursive_text_splitter(text: str, chunk_size: int = 1000, overlap: int = 20
         end_idx = min(start_idx + cfg.chunk_size, text_len)
         chunk = cfg.text[start_idx:end_idx]
         chunks.append(chunk)
-        # move window forward by chunk_size - overlap
         start_idx = end_idx - cfg.overlap
         if start_idx < 0:
             start_idx = end_idx  # safety
