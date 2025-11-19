@@ -14,7 +14,7 @@ logger = logging.getLogger("core.pdf_processor")
 class PDFProcessor:
     def __init__(self, api_url: Optional[str] = None, index_key: str = "default"):
         port = os.environ.get("CHUNK_API_PORT", "8000")
-        self.api_url = api_url or f"http://localhost:{port}/api"
+        self.api_url = api_url or f"http://localhost:{port}"
         self.session_dir = tempfile.mkdtemp(prefix="gradio_pdf_session_")
         self.pdf_path: Optional[str] = None
         self.pdf_text: str = ""
@@ -46,7 +46,7 @@ class PDFProcessor:
             return "The PDF contains no extractable text."
 
         try:
-            r = requests.post(f"{self.api_url}/chunk", json={"text": self.pdf_text}, timeout=120)
+            r = requests.post(f"{self.api_url}/api/chunk", json={"text": self.pdf_text}, timeout=120)
             r.raise_for_status()
             data = r.json()
             self.chunks = data.get("chunks", [])
