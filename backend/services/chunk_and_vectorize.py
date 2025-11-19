@@ -22,12 +22,15 @@ def recursive_text_splitter(text: str, chunk_size: int = 1000, overlap: int = 20
     cfg = TextChunkConfig(text=text, chunk_size=chunk_size, overlap=overlap)
     chunks = []
     start_idx = 0
-    while start_idx < len(cfg.text):
-        end_idx = start_idx + cfg.chunk_size
+    text_len = len(cfg.text)
+    while start_idx < text_len:
+        end_idx = min(start_idx + cfg.chunk_size, text_len)
         chunk = cfg.text[start_idx:end_idx]
         chunks.append(chunk)
-        # ensure forward progress
-        start_idx = max(end_idx - cfg.overlap, end_idx)
+        # move window forward by chunk_size - overlap
+        start_idx = end_idx - cfg.overlap
+        if start_idx < 0:
+            start_idx = end_idx  # safety
     logger.info(f"Split text into {len(chunks)} chunks")
     return chunks
 
