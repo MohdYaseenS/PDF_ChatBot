@@ -5,13 +5,13 @@ from backend.core.response_generator import generate_response
 import asyncio
 from fastapi.responses import StreamingResponse
 
-router = APIRouter()
+llm_router = APIRouter()
 
 class AnswerRequest(BaseModel):
     context: str
     question: str
 
-@router.post("/answer")
+@llm_router.post("/answer")
 async def generate_answer(req: AnswerRequest):
     prompt = f"You are provided with the following context: {req.context} Based on this context, answer the question: {req.question}"
     result = generate_response(prompt)

@@ -6,7 +6,7 @@ from typing import List
 from backend.services.retrieval import FaissIndexWrapper, get_matches_from_indices
 from backend.core.embeddings import embed_text
 
-router = APIRouter()
+search_router = APIRouter()
 
 # In-memory store (prototype)
 _INDICES = {}  # key -> {"chunks": [...], "vectors": np.ndarray, "faiss": FaissIndexWrapper}
@@ -21,14 +21,14 @@ class QueryRequest(BaseModel):
     query: str
     top_k: int = 3
 
-@router.post("/build_index")
+@search_router.post("/build_index")
 async def build_index(req: BuildIndexRequest):
     vectors = np.array(req.vectors, dtype=np.float32)
     fa = FaissIndexWrapper(vectors)
     _INDICES[req.key] = {"chunks": req.chunks, "vectors": vectors, "faiss": fa}
     return {"status": "ok", "n_chunks": len(req.chunks)}
 
-@router.post("/query")
+@search_router.post("/query")
 async def query_index(req: QueryRequest):
     if req.key not in _INDICES:
         raise HTTPException(status_code=404, detail="Index not found for key")

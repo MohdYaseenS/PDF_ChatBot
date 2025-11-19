@@ -4,12 +4,12 @@ from pydantic import BaseModel
 from backend.models.get_env_config import get_config
 from backend.services.chunk_and_vectorize import chunk_and_vectorize
 
-router = APIRouter()
+chunk_router = APIRouter()
 
 class PDFText(BaseModel):
     text: str
 
-@router.post("/chunk")
+@chunk_router.post("/chunk")
 async def chunk_endpoint(data: PDFText):
     cfg = get_config()
     chunks, vectors = chunk_and_vectorize(
