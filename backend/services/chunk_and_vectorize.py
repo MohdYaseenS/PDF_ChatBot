@@ -4,6 +4,7 @@ import numpy as np
 from pydantic import BaseModel, Field, field_validator
 import logging
 from backend.core.embeddings import embed_texts
+from backend.core.app_state import config  # centralized config
 
 logger = logging.getLogger("services.chunk_and_vectorize")
 
@@ -33,7 +34,12 @@ def recursive_text_splitter(text: str, chunk_size: int = 1000, overlap: int = 20
     logger.info(f"Split text into {len(chunks)} chunks")
     return chunks
 
-def chunk_and_vectorize(text: str, chunk_size: int = 1000, overlap: int = 200, model_name: str = "all-MiniLM-L6-v2") -> Tuple[List[str], np.ndarray]:
+def chunk_and_vectorize(text: str, chunk_size: int = None, overlap: int = None, model_name: str = None) -> Tuple[List[str], np.ndarray]:
+    # default to config values
+    chunk_size = chunk_size or config.chunk_size
+    overlap = overlap or config.overlap
+    model_name = model_name or config.embedding_model_id
+
     chunks = recursive_text_splitter(text=text, chunk_size=chunk_size, overlap=overlap)
     vectors = embed_texts(chunks, model_name=model_name)
     return chunks, vectors
