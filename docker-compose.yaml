@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: pdfchat-backend
+    ports:
+      - "8081:8081"
+    env_file: .env
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: pdfchat-frontend
+    ports:
+      - "8501:8501"
+    env_file: .env
+    depends_on:
+      - backend
+    restart: always
