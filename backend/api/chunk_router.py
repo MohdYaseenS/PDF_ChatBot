@@ -1,7 +1,7 @@
 # backend/api/chunk_router.py
 from fastapi import APIRouter
 from pydantic import BaseModel
-from backend.models.get_env_config import get_config
+from backend.core.app_state import config
 from backend.services.chunk_and_vectorize import chunk_and_vectorize
 
 chunk_router = APIRouter()
@@ -11,7 +11,7 @@ class PDFText(BaseModel):
 
 @chunk_router.post("/chunk")
 async def chunk_endpoint(data: PDFText):
-    cfg = get_config()
+    cfg = config
     chunks, vectors = chunk_and_vectorize(
         text=data.text,
         chunk_size=cfg.chunk_size,

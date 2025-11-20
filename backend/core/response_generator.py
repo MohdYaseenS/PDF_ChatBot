@@ -1,9 +1,6 @@
-from backend.models.hugginface_model import HugginFaceModel
-from backend.models.get_env_config import get_config
+from backend.core.app_state import llm
 import logging
 
-config = get_config()
-llm = HugginFaceModel(config=config)
 logger = logging.getLogger(__name__)
 
 def generate_response(prompt: str) -> str:
