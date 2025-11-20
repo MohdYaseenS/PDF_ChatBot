@@ -10,7 +10,7 @@ logger.setLevel(logging.INFO)
 
 class HugginFaceModel:
     """
-    LLM wrapper using Together's official Python SDK.
+    LLM wrapper using Hugginface InferenceClient.
     """
 
     def __init__(self, config: ChatBotEnvConfig):
