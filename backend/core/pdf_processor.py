@@ -13,7 +13,7 @@ logger = logging.getLogger("core.pdf_processor")
 
 class PDFProcessor:
     def __init__(self, api_url: Optional[str] = None, index_key: str = "default"):
-        port = os.environ.get("CHUNK_API_PORT", "8000")
+        port = os.environ.get("CHUNK_API_PORT", "8081")
         self.api_url = api_url or f"http://localhost:{port}"
         self.session_dir = tempfile.mkdtemp(prefix="gradio_pdf_session_")
         self.pdf_path: Optional[str] = None

@@ -16,7 +16,7 @@ class ChatBotEnvConfig(BaseModel):
     chunk_size: int = Field(1000, gt=0)
     overlap: int = Field(100, ge=0)
     # Backend url used by frontend / pdf processor if needed
-    backend_url: str = Field("http://localhost:8000")
+    backend_url: str = Field("http://localhost:8081")
 
     @classmethod
     def from_env(cls):
@@ -31,6 +31,6 @@ class ChatBotEnvConfig(BaseModel):
             stream_message=os.getenv("STREAM_MESSAGE", "false").lower() == "true",
             chunk_size=int(os.getenv("CHUNK_SIZE", 1000)),
             overlap=int(os.getenv("OVERLAP", 100)),
-            backend_url=os.getenv("BACKEND_URL", f"http://localhost:{os.getenv('PORT', '8000')}"),
+            backend_url=os.getenv("BACKEND_URL", f"http://localhost:{os.getenv('PORT', '8081')}"),
         )
 
