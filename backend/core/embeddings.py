@@ -44,16 +44,3 @@ def embed_texts(texts, model_name: str = "all-MiniLM-L6-v2") -> np.ndarray:
 def embed_text(text, model_name: str = "all-MiniLM-L6-v2") -> np.ndarray:
     return embed_texts([text], model_name=model_name)[0]
 
-
-
-def get_embedding_model(model_name: str = "all-MiniLM-L6-v2") -> _EmbeddingModel:
-    return _EmbeddingModel.get(model_name)
-
-
-def embed_texts(texts, model_name: str = "all-MiniLM-L6-v2") -> np.ndarray:
-    m = get_embedding_model(model_name)
-    return m.encode(texts)
-
-
-def embed_text(text, model_name: str = "all-MiniLM-L6-v2") -> np.ndarray:
-    return embed_texts([text], model_name=model_name)[0]
