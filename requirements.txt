@@ -5,3 +5,9 @@ sentence_transformers
 requests
 dotenv
 langchain
+python-dotenv
+torch
+transformers
+# Optional: for local models (uncomment if using local inference)
+accelerate
+bitsandbytes  # for quantization
