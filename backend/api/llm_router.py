@@ -22,22 +22,24 @@ def build_optimized_prompt(context: str, question: str) -> str:
     """
     Builds an optimized prompt for better LLM responses.
     Uses structured format with clear instructions.
+    Optimized to reduce token usage while maintaining quality.
     """
-    system_instruction = """You are a helpful AI assistant that answers questions based on the provided context. 
-Your answers should be:
-- Accurate and based only on the provided context
-- Clear and well-structured
-- Concise but complete
-- If the context doesn't contain enough information, say so explicitly"""
+    # Truncate context if too long (to reduce tokens and speed up inference)
+    max_context_length = 2000  # characters, adjust based on model context window
+    if len(context) > max_context_length:
+        context = context[:max_context_length] + "... [truncated]"
+        logger.warning(f"Context truncated to {max_context_length} characters")
     
+    # More concise system instruction
+    system_instruction = "Answer based on the context. Be accurate, concise, and cite context when possible."
+    
+    # Compact prompt format
     prompt = f"""{system_instruction}
 
-CONTEXT:
-{context}
+Context: {context}
 
-QUESTION: {question}
-
-ANSWER:"""
+Q: {question}
+A:"""
     return prompt
 
 def _consume_generator(generator):
