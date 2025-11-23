@@ -1,103 +1,101 @@
 # backend/api/llm_router.py
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from backend.core.response_generator import generate_response
 from fastapi.responses import StreamingResponse
 import asyncio
 import logging
-from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
 llm_router = APIRouter()
 
-# Thread pool for running synchronous generators
-executor = ThreadPoolExecutor(max_workers=2)
 
+# ==============================
+# Request Model
+# ==============================
 class AnswerRequest(BaseModel):
     context: str
     question: str
 
+
+# ==============================
+# Prompt Builder
+# ==============================
 def build_optimized_prompt(context: str, question: str) -> str:
     """
     Builds an optimized prompt for better LLM responses.
-    Uses structured format with clear instructions.
-    Optimized to reduce token usage while maintaining quality.
+    Uses a structured and token-efficient format.
     """
-    # Truncate context if too long (to reduce tokens and speed up inference)
-    max_context_length = 2000  # characters, adjust based on model context window
+
+    max_context_length = 5000  # character-based truncation
     if len(context) > max_context_length:
         context = context[:max_context_length] + "... [truncated]"
-        logger.warning(f"Context truncated to {max_context_length} characters")
-    
-    # More concise system instruction
-    system_instruction = "Answer based on the context. Be accurate, concise, and cite context when possible."
-    
-    # Compact prompt format
+        logger.warning("Context exceeded limit and was truncated.")
+
+    system_instruction = "Answer based only on the provided context."
+
     prompt = f"""{system_instruction}
 
-Context: {context}
+Context:
+{context}
 
 Q: {question}
 A:"""
+
     return prompt
 
-def _consume_generator(generator):
-    """Helper to consume synchronous generator and return list of chunks"""
-    chunks = []
-    try:
-        for chunk in generator:
-            if chunk:
-                chunks.append(chunk)
-    except Exception as e:
-        logger.error(f"Error consuming generator: {e}")
-        chunks.append(f"\n\nError: {str(e)}")
-    return chunks
 
+# ==============================
+# Router Entry
+# ==============================
 @llm_router.post("/answer")
 async def generate_answer(req: AnswerRequest):
-    # Use optimized prompt
-    prompt = build_optimized_prompt(req.context, req.question)
-    result = generate_response(prompt)
+    """
+    Routes the question + context to the LLM.
+    Supports both normal and streaming responses.
+    """
+    try:
+        prompt = build_optimized_prompt(req.context, req.question)
+        result = generate_response(prompt)
+    except Exception as e:
+        logger.exception("Error generating response from LLM backend.")
+        raise HTTPException(status_code=500, detail=str(e))
 
-    if not result["success"]:
-        return {"error": result["error"]}
+    # -----------------------------
+    # Non-streaming response
+    # -----------------------------
+    if not result.get("stream", False):
+        logger.info("Returning non-streaming response.")
+        return {"answer": result.get("data", "")}
 
-    # Streaming flow
-    if result.get("stream"):
-        logger.info("Starting streaming response")
-        
-        async def streamer():
-            try:
-                # Get the synchronous generator
-                generator = result["data"]
-                
-                # Iterate over the generator directly
-                # This will block the event loop, but for streaming it's acceptable
-                # as we want to yield chunks as soon as they arrive
-                for chunk in generator:
-                    if chunk:  # Only yield non-empty chunks
-                        # FastAPI StreamingResponse expects bytes
-                        chunk_bytes = chunk.encode('utf-8') if isinstance(chunk, str) else chunk
-                        yield chunk_bytes
-                        # Yield to event loop after each chunk to maintain responsiveness
-                        await asyncio.sleep(0)
-                    
-            except Exception as e:
-                logger.exception("Error in streamer")
-                error_msg = f"\n\nError during streaming: {str(e)}"
-                yield error_msg.encode('utf-8')
-                
-        return StreamingResponse(
-            streamer(), 
-            media_type="text/plain; charset=utf-8",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no"  # Disable buffering in nginx
-            }
-        )
+    # -----------------------------
+    # Streaming response
+    # -----------------------------
+    logger.info("Starting streaming LLM response.")
 
-    # Normal flow
-    logger.info("Returning non-streaming response")
-    return {"answer": result["data"]}
+    async def streamer():
+        """
+        Wraps a synchronous generator and streams chunks asynchronously.
+        """
+        try:
+            generator = result["data"]  # This is a Python generator
+
+            for chunk in generator:
+                if not chunk:
+                    continue
+
+                # FastAPI StreamingResponse requires bytes
+                yield chunk.encode("utf-8")
+                # Yield control to event loop after each chunk
+                await asyncio.sleep(0)
+
+        except Exception as e:
+            logger.exception("Error during streaming LLM output.")
+            yield f"\n\nError during streaming: {str(e)}".encode("utf-8")
+
+    return StreamingResponse(
+        streamer(),
+        media_type="text/plain; charset=utf-8"
+    )

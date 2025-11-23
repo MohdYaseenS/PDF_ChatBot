@@ -181,7 +181,7 @@ class PDFProcessor:
 
         loop = get_event_loop()
 
-        # Step 1: Context Retrieval
+        # Step 1: Fetch context
         try:
             resp = loop.run_until_complete(
                 self.client.post(
@@ -193,13 +193,12 @@ class PDFProcessor:
 
             matches = resp.json().get("matches", [])
             context = "\n\n---\n\n".join(matches)
-
         except Exception as e:
             logger.exception(f"Error fetching context: {e}")
             yield f"Error fetching context: {e}"
             return
 
-        # Step 2: Stream LLM Response
+        # Step 2: Stream LLM chunks
         try:
             async def stream_answer():
                 async with self.client.stream(
@@ -212,13 +211,16 @@ class PDFProcessor:
                         if chunk:
                             yield chunk.decode("utf-8", errors="ignore")
 
-            # Run async generator synchronously
             agen = stream_answer()
+
+            # FIX: accumulate partial text
+            accumulated = ""
 
             while True:
                 try:
                     piece = loop.run_until_complete(agen.__anext__())
-                    yield piece
+                    accumulated += piece
+                    yield accumulated
                 except StopAsyncIteration:
                     break
 
