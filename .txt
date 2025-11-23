@@ -3,4 +3,6 @@ We accidently merged and that accidental merge was resovled back to the last hea
 
 Run backend:
 uvicorn backend.main:app --host localhost --port 8081
+
+Run frontend:
 python -m frontend.ui
