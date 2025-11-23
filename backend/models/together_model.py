@@ -1,7 +1,8 @@
 from together import Together
-from backend.core.config import LLMEnvConfig
+from backend.core.config import ChatBotEnvConfig
 from typing import Iterator, Optional
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -12,9 +13,10 @@ class TogetherModel:
     LLM wrapper using Together's official Python SDK.
     """
 
-    def __init__(self, config: LLMEnvConfig):
+    def __init__(self, config: ChatBotEnvConfig):
         self.config = config
-        self.client = Together(api_key=self.config.api_key)
+        self.together_api_key= os.getenv("TOGETHER_API_KEY")
+        self.client = Together(api_key=self.together_api_key)
 
     def generate(self, prompt: str) -> Optional[str]:
         """
