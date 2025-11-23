@@ -20,6 +20,6 @@ if __name__ == "__main__":
             question_input = gr.Textbox(label="Type your question", placeholder="Enter your question here...")
             submit_btn = gr.Button("Submit Question")
             response_output = gr.Textbox(label="Response")
-            submit_btn.click(pdf_processor.ask, inputs=question_input, outputs=response_output)
+            submit_btn.click(pdf_processor.ask_stream, inputs=question_input, outputs=response_output)
     
     app.launch()

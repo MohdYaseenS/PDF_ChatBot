@@ -83,3 +83,58 @@ class PDFProcessor:
             return answer
         except Exception as e:
             return f"Error handling question: {e}"
+    
+    
+    def ask_stream(self, question: str, top_k: int = 3):
+        """
+        Stream PDF Q&A response from the backend LLM API.
+
+        Yields partial answer as it arrives.
+        """
+        if not self.chunks or self.vectors is None:
+            yield "Please upload and process a PDF before asking a question."
+            return
+
+        try:
+            # 1️⃣ Search for relevant chunks
+            qresp = requests.post(
+                f"{self.api_url}/api/search/query",
+                json={
+                    "key": self.index_key,
+                    "query": question,
+                    "top_k": top_k,
+                },
+                timeout=30,
+            )
+            qresp.raise_for_status()
+            try:
+                data = qresp.json()
+            except ValueError:
+                yield f"Invalid JSON from search API: {qresp.text}"
+                return
+
+            matches = data.get("matches", [])
+            context = "\n\n---\n\n".join(matches)
+
+            # 2️⃣ Streaming LLM call
+            ans_resp = requests.post(
+                f"{self.api_url}/api/llm/answer",
+                json={"context": context, "question": question},
+                stream=True,
+                timeout=60,
+            )
+            ans_resp.raise_for_status()
+
+            # 3️⃣ Stream content incrementally (not line-based)
+            answer = ""
+            for chunk in ans_resp.iter_content(chunk_size=32, decode_unicode=True):
+                if chunk:
+                    answer += chunk
+                    yield answer  # Yield partial text continuously
+
+        except requests.exceptions.RequestException as e:
+            logger.exception("Request error in ask_stream()")
+            yield f"Request error: {e}"
+        except Exception as e:
+            logger.exception("Unexpected error in ask_stream()")
+            yield f"Unexpected error: {e}"
