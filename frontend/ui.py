@@ -17,9 +17,21 @@ if __name__ == "__main__":
         
         # Ask question tab
         with gr.Tab("Ask Question"):
-            question_input = gr.Textbox(label="Type your question", placeholder="Enter your question here...")
+            question_input = gr.Textbox(
+                label="Type your question", 
+                placeholder="Enter your question here..."
+            )
             submit_btn = gr.Button("Submit Question")
-            response_output = gr.Textbox(label="Response")
+            
+            # Updated response output for streaming
+            response_output = gr.Textbox(
+                label="Response",
+                interactive=False,
+                lines=3,       # initial height
+                max_lines=15,  # max height before scrolling
+                placeholder="LLM response will appear here..."
+            )
+            
             submit_btn.click(pdf_processor.ask_stream, inputs=question_input, outputs=response_output)
     
     app.launch()
