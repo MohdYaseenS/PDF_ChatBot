@@ -86,113 +86,49 @@ class PDFProcessor:
     
     
     def ask_stream(self, question: str, top_k: int = 3):
-        """
-        Stream PDF Q&A response from the backend LLM API.
 
-        Yields partial answer as it arrives.
-        """
-        logger.info(f"ask_stream called with question: {question[:50]}...")
-        
+        logger = logging.getLogger(__name__)
+
         if not self.chunks or self.vectors is None:
-            error_msg = "Please upload and process a PDF before asking a question."
-            logger.warning(error_msg)
-            yield error_msg
+            yield "Please upload and process a PDF before asking a question."
             return
 
+        # Step 1: Search for relevant chunks
         try:
-            # 1️⃣ Search for relevant chunks
-            logger.info("Searching for relevant chunks...")
-            qresp = requests.post(
+            resp = requests.post(
                 f"{self.api_url}/api/search/query",
-                json={
-                    "key": self.index_key,
-                    "query": question,
-                    "top_k": top_k,
-                },
-                timeout=30,
+                json={"key": self.index_key, "query": question, "top_k": top_k},
+                timeout=30
             )
-            qresp.raise_for_status()
-            try:
-                data = qresp.json()
-            except ValueError:
-                error_msg = f"Invalid JSON from search API: {qresp.text}"
-                logger.error(error_msg)
-                yield error_msg
-                return
-
+            resp.raise_for_status()
+            data = resp.json()
             matches = data.get("matches", [])
             context = "\n\n---\n\n".join(matches)
-            logger.info(f"Found {len(matches)} matching chunks, context length: {len(context)}")
+        except Exception as e:
+            yield f"Error fetching context: {e}"
+            return
 
-            # 2️⃣ Streaming LLM call
-            # Use stream=True and ensure no buffering
-            logger.info("Calling LLM API for streaming response...")
-            ans_resp = requests.post(
+        # Step 2: Stream from LLM backend
+        try:
+            with requests.post(
                 f"{self.api_url}/api/llm/answer",
                 json={"context": context, "question": question},
                 stream=True,
-                timeout=60,
-            )
-            ans_resp.raise_for_status()
-            
-            # Log for debugging
-            logger.info(f"Streaming response received. Status: {ans_resp.status_code}")
-            logger.info(f"Content-Type: {ans_resp.headers.get('Content-Type')}")
-            logger.info(f"Transfer-Encoding: {ans_resp.headers.get('Transfer-Encoding')}")
+                timeout=60
+            ) as ans_resp:
+                ans_resp.raise_for_status()
+                answer = ""
 
-            # 3️⃣ Stream content incrementally
-            # For plain text streaming, read and accumulate chunks
-            answer = ""
-            buffer = b""  # Use bytes buffer for UTF-8 character handling
-            chunk_count = 0
-            
-            try:
-                # Read streaming response - FastAPI StreamingResponse sends bytes
-                # Use very small chunk size (1 byte) to get updates as fast as possible
-                # This ensures we get chunks immediately as they arrive
-                for chunk_bytes in ans_resp.iter_content(chunk_size=1, decode_unicode=False):
-                    if chunk_bytes:
-                        chunk_count += 1
-                        buffer += chunk_bytes
-                        
-                        # Try to decode complete UTF-8 sequences
-                        try:
-                            # Attempt to decode the buffer
-                            decoded = buffer.decode('utf-8')
-                            # Successfully decoded - add to answer and clear buffer
-                            answer += decoded
-                            buffer = b""
-                            # Yield accumulated answer for Gradio (Gradio updates UI with each yield)
-                            logger.debug(f"Yielding answer chunk #{chunk_count}, length: {len(answer)}")
-                            yield answer
-                        except UnicodeDecodeError:
-                            # Incomplete UTF-8 sequence - keep in buffer
-                            # Continue accumulating bytes until we have a complete character
-                            pass
-                    
-                # Handle any remaining buffer at the end
-                if buffer:
-                    try:
-                        decoded = buffer.decode('utf-8')
-                        answer += decoded
-                    except UnicodeDecodeError:
-                        # Force decode with error replacement for any remaining bytes
-                        decoded = buffer.decode('utf-8', errors='replace')
-                        answer += decoded
-                    logger.info(f"Final yield, total answer length: {len(answer)}")
+                # Iterate over lines (FastAPI streaming usually sends bytes ending with b'\n')
+                for chunk in ans_resp.iter_lines(decode_unicode=True):
+                    if chunk:  # ignore keep-alive or empty lines
+                        answer += chunk + "\n"
+                        yield answer  # yield cumulative text for Gradio
+
+                # Ensure final yield in case last chunk didn't end with newline
+                if answer:
                     yield answer
-                else:
-                    logger.info(f"Streaming complete, total answer length: {len(answer)}, chunks: {chunk_count}")
-                    if answer:
-                        yield answer  # Final yield even if no buffer
-                    
-            except Exception as stream_error:
-                logger.exception(f"Error during streaming: {stream_error}")
-                yield f"Error during streaming: {str(stream_error)}"
 
-        except requests.exceptions.RequestException as e:
-            logger.exception("Request error in ask_stream()")
-            yield f"Request error: {e}"
         except Exception as e:
-            logger.exception("Unexpected error in ask_stream()")
-            yield f"Unexpected error: {e}"
+            logger.exception("Error during LLM streaming")
+            yield f"Streaming error: {e}"
