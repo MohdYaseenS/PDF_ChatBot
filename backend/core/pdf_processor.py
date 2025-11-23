@@ -51,7 +51,7 @@ class PDFProcessor:
             data = r.json()
             self.chunks = data.get("chunks", [])
             self.vectors = np.array(data.get("vectors", []), dtype=np.float32)
-            build_resp = requests.post(f"{self.api_url}/search/build_index", json={
+            build_resp = requests.post(f"{self.api_url}/api/search/build_index", json={
                 "key": self.index_key,
                 "chunks": self.chunks,
                 "vectors": self.vectors.tolist(),
@@ -65,7 +65,7 @@ class PDFProcessor:
         if not self.chunks or self.vectors is None:
             return "Please upload and process a PDF before asking a question."
         try:
-            qresp = requests.post(f"{self.api_url}/search/query", json={
+            qresp = requests.post(f"{self.api_url}/api/search/query", json={
                 "key": self.index_key,
                 "query": question,
                 "top_k": top_k,
@@ -74,7 +74,7 @@ class PDFProcessor:
             data = qresp.json()
             matches = data.get("matches", [])
             context = "\n\n---\n\n".join(matches)
-            ans_resp = requests.post(f"{self.api_url}/llm/answer", json={
+            ans_resp = requests.post(f"{self.api_url}/api/llm/answer", json={
                 "context": context,
                 "question": question,
             }, timeout=60)

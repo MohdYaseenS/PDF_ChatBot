@@ -5,8 +5,11 @@ from pydantic import BaseModel, Field, field_validator
 import logging
 from backend.core.embeddings import embed_texts
 from backend.core.app_state import config  # centralized config
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 logger = logging.getLogger("services.chunk_and_vectorize")
+
+from pydantic import BaseModel, Field, field_validator
 
 class TextChunkConfig(BaseModel):
     text: str = Field(..., min_length=1)
@@ -14,9 +17,13 @@ class TextChunkConfig(BaseModel):
     overlap: int = Field(200, ge=0, lt=1000)
 
     @field_validator("overlap")
-    def validate_overlap(cls, overlap, values):
-        if "chunk_size" in values and overlap >= values["chunk_size"]:
+    def validate_overlap(cls, overlap, info):
+        data = info.data  # <- other validated fields
+        chunk_size = data.get("chunk_size")
+
+        if chunk_size is not None and overlap >= chunk_size:
             raise ValueError("overlap must be smaller than chunk_size")
+
         return overlap
 
 def recursive_text_splitter(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
@@ -34,12 +41,21 @@ def recursive_text_splitter(text: str, chunk_size: int = 1000, overlap: int = 20
     logger.info(f"Split text into {len(chunks)} chunks")
     return chunks
 
+def lc_split(text, chunk_size=1000, overlap=200):
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=overlap,
+        length_function=len,
+    )
+    return splitter.split_text(text)
+
 def chunk_and_vectorize(text: str, chunk_size: int = None, overlap: int = None, model_name: str = None) -> Tuple[List[str], np.ndarray]:
     # default to config values
     chunk_size = chunk_size or config.chunk_size
     overlap = overlap or config.overlap
     model_name = model_name or config.embedding_model_id
 
-    chunks = recursive_text_splitter(text=text, chunk_size=chunk_size, overlap=overlap)
+    # chunks = recursive_text_splitter(text=text, chunk_size=chunk_size, overlap=overlap)
+    chunks = lc_split(text=text, chunk_size=chunk_size, overlap=overlap)
     vectors = embed_texts(chunks, model_name=model_name)
     return chunks, vectors

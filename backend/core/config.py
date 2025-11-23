@@ -21,14 +21,14 @@ class ChatBotEnvConfig(BaseModel):
     @classmethod
     def from_env(cls):
         # pick up environment variables with fallbacks
-        model_id = os.getenv("MODEL_ID", "gpt-4o-mini")  # example default - adjust
+        model_id = os.getenv("MODEL_ID", "moonshotai/Kimi-K2-Thinking")  # example default - adjust
         embedding_id = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
         return cls(
             model_id=model_id,
             embedding_model_id=embedding_id,
             max_tokens=int(os.getenv("MAX_TOKENS", 512)),
             temperature=float(os.getenv("TEMPERATURE", 0.7)),
-            stream_message=os.getenv("STREAM_MESSAGE", "false").lower() == "true",
+            stream_message=os.getenv("STREAM_MESSAGE", "true").lower() == "true",
             chunk_size=int(os.getenv("CHUNK_SIZE", 1000)),
             overlap=int(os.getenv("OVERLAP", 100)),
             backend_url=os.getenv("BACKEND_URL", f"http://localhost:{os.getenv('PORT', '8081')}"),

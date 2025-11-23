@@ -3,3 +3,5 @@ faiss-cpu
 numpy
 sentence_transformers
 requests
+dotenv
+langchain
