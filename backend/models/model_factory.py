@@ -6,6 +6,8 @@ from backend.core.config import ChatBotEnvConfig
 from backend.models.hugginface_model import HugginFaceModel
 from backend.models.local_model import LocalModel
 from backend.models.ollama_model import OllamaModel
+from backend.models.together_model import TogetherModel
+
 import logging
 import os
 
@@ -42,6 +44,16 @@ class ModelFactory:
                 logger.error(f"Failed to load local model: {e}")
                 logger.warning("Falling back to HuggingFace API")
                 return HugginFaceModel(config)
+        
+        elif model_type in ['together']:
+            logger.info("Using Together api model")
+            try:
+                return TogetherModel(config)
+            except Exception as e:
+                logger.error(f"Failed to load local model: {e}")
+                logger.warning("Falling back to HuggingFace API")
+                return HugginFaceModel(config)
+
         
         elif model_type == "ollama":
             logger.info("Using Ollama local server")
