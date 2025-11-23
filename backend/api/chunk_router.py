@@ -16,7 +16,7 @@ async def chunk_endpoint(data: PDFText):
         text=data.text,
         chunk_size=cfg.chunk_size,
         overlap=cfg.overlap,
-        model_name=cfg.model_id,
+        model_name=cfg.embedding_model_id,  # Fixed: use embedding_model_id, not model_id
     )
     return {
         "chunks": chunks,
